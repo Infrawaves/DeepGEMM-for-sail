@@ -139,7 +139,7 @@ static void mega_mhc(
                    "810E Mega-mHC supports BF16 output only");
     const auto plan = select_mega_mhc_plan(t, h, num_sinkhorn_iters, get_num_sms(), tc01,
         y_bf16.has_value(), y_fp8.has_value(), shared_sf_block_m, y_token_sf.has_value(),
-        at::cuda::getCurrentDeviceProperties()->multiProcessorCount);
+        device_runtime->get_prop()->multiProcessorCount);
     const auto& y_primary_sf = y_token_sf.has_value() ? y_token_sf :
                                y_routed_sf.has_value() ? y_routed_sf : y_gemm_sf;
     mhc::Args args{
