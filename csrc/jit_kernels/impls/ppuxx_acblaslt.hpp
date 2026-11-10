@@ -1,14 +1,27 @@
 #pragma once
 
 #include <acblasLt.h>
-#include <ATen/cuda/CUDAContext.h>
-#include <ATen/cuda/CUDADataType.h>
 
 #include "../../jit/device_runtime.hpp"
 #include "../../utils/exception.hpp"
 #include "../../utils/compatibility.hpp"
 
 namespace deep_gemm {
+
+// Not at::cuda::ScalarTypeToCudaDataType: CUDA-compatible PPU torch builds return cudaDataType,
+// a distinct enum from hggcDataType.
+static hggcDataType to_hggc_data_type(const at::ScalarType& type) {
+    switch (type) {
+        case torch::kFloat: return HGGC_R_32F;
+        case torch::kHalf: return HGGC_R_16F;
+        case torch::kBFloat16: return HGGC_R_16BF;
+        case torch::kFloat8_e4m3fn: return HGGC_R_8F_E4M3;
+        case torch::kFloat8_e5m2: return HGGC_R_8F_E5M2;
+        case torch::kChar: return HGGC_R_8I;
+        case torch::kInt: return HGGC_R_32I;
+        default: DG_HOST_UNREACHABLE("Unsupported dtype for acBLASLt");
+    }
+}
 
 static auto get_acblaslt_layout(const hggcDataType& type, const int& rows, const int& cols, const int& ld,
                                 const std::optional<int>& batch_count = std::nullopt,
@@ -106,9 +119,9 @@ static void acblaslt_gemm(const torch::Tensor& lhs, const torch::Tensor& rhs,
     const auto trans_b = a_major == MajorType::K ? ACBLAS_OP_N : ACBLAS_OP_T;
 
     // Matrix layouts
-    const auto hggc_type_a = at::cuda::ScalarTypeToCudaDataType(rhs.scalar_type());
-    const auto hggc_type_b = at::cuda::ScalarTypeToCudaDataType(lhs.scalar_type());
-    const auto hggc_type_d = at::cuda::ScalarTypeToCudaDataType(out.scalar_type());
+    const auto hggc_type_a = to_hggc_data_type(rhs.scalar_type());
+    const auto hggc_type_b = to_hggc_data_type(lhs.scalar_type());
+    const auto hggc_type_d = to_hggc_data_type(out.scalar_type());
     const auto layout_a = b_major == MajorType::K ? get_acblaslt_layout(hggc_type_a, k, n, rhs.stride(0))
                                                            : get_acblaslt_layout(hggc_type_a, n, k, rhs.stride(1));
     const auto layout_b = a_major == MajorType::K ? get_acblaslt_layout(hggc_type_b, k, m, lhs.stride(0))

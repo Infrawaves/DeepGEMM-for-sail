@@ -6,13 +6,15 @@
 #include <hggc_runtime_api.h>
 #include <torch/version.h>
 #include <torch/torch.h>
-#include <ATen/cuda/CUDAContext.h>
 #include <c10/cuda/CUDAStream.h>
 
 #include "../utils/exception.hpp"
 #include "../utils/lazy_init.hpp"
 
-#define PYTORCH_SUPPORTS_GET_ACBLASLT_HANDLE (TORCH_VERSION_MAJOR > 2 or (TORCH_VERSION_MAJOR == 2 and TORCH_VERSION_MINOR >= 3))
+// ATen/cuda/CUDAContext.h is not included: on CUDA-compatible PPU torch builds it pulls in
+// cuBLAS fp16/bf16 headers that redefine the HGGC ones from acblasLt.h, and torch's cuBLASLt
+// handle is not an acBLASLt handle there. DeepGEMM always owns its acBLASLt handle.
+#define PYTORCH_SUPPORTS_GET_ACBLASLT_HANDLE 0
 
 namespace deep_gemm {
 
@@ -152,7 +154,7 @@ inline auto device_runtime = LazyInit<DeviceRuntime>([](){ return std::make_shar
 // object, so `reinterpret_cast` is the only well-formed conversion. Kept here instead of at every
 // launch site; after cudafy the two types coincide and the cast degenerates to a no-op.
 inline hggcStream_t current_stream() {
-    return reinterpret_cast<hggcStream_t>(at::cuda::getCurrentCUDAStream().stream());
+    return reinterpret_cast<hggcStream_t>(c10::cuda::getCurrentCUDAStream().stream());
 }
 
 } // namespace deep_gemm
