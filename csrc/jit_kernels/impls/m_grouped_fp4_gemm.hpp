@@ -1,5 +1,7 @@
 #pragma once
 
+#include <pybind11/pybind11.h>
+
 #include "fp4_gemm.hpp"
 #include "fp8_gemm.hpp"
 
@@ -19,7 +21,8 @@ static void m_grouped_gemm_fp4_fp4_bf16_nt_nopad_impl(
     std::optional<ConfigTuple> configs = std::nullopt,
     const torch::Tensor& out_scale = torch::Tensor(),
     float swiglu_limit = 0.0f,
-    std::string activation_type = "silu_and_mul") {
+    std::string activation_type = "silu_and_mul",
+    const pybind11::object& layout_ready_event = pybind11::none()) {
     // When `out_scale` is provided, silu_and_mul + mxfp4 post-quant are fused into the epilogue.
     const bool enable_act_and_quant_fusing = out_scale.defined() && out_scale.numel() > 0;
     const bool hasBias = bias.numel() > 0;
@@ -246,6 +249,9 @@ static void m_grouped_gemm_fp4_fp4_bf16_nt_nopad_impl(
     }
     {
         auto profiling_guard = deep_gemm::show_gemm_ut(dg_prof_params);
+        if (!layout_ready_event.is_none()) {
+            layout_ready_event.attr("record")();
+        }
         FP4GemmRuntime::launch(runtime, args);
     }
 

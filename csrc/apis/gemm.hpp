@@ -1100,7 +1100,8 @@ static void m_grouped_fp4_gemm_nt_nopad(const std::pair<torch::Tensor, torch::Te
                                         std::optional<torch::Tensor> out_scale = std::nullopt,
                                         std::optional<float> swiglu_limit = std::nullopt,
                                         std::optional<ConfigTuple> configs = std::nullopt,
-                                        std::optional<std::string> activation_type = std::nullopt) {
+                                        std::optional<std::string> activation_type = std::nullopt,
+                                        const py::object& layout_ready_event = py::none()) {
 
     const auto& lhs = a.first;
     const auto& lhs_scales = a.second;
@@ -1189,7 +1190,8 @@ static void m_grouped_fp4_gemm_nt_nopad(const std::pair<torch::Tensor, torch::Te
     if (arch_major == 8) {
         m_grouped_gemm_fp4_fp4_bf16_nt_nopad_impl(lhs, lhs_scales_t, rhs, rhs_scales_t, bias_tensor, d,
                                                     m_indices, m_rows_tensor, m, n, k, num_groups, configs,
-                                                    out_scale_tensor, swiglu_limit.value_or(0.0f), activation_type.value_or("silu_and_mul"));
+                                                    out_scale_tensor, swiglu_limit.value_or(0.0f),
+                                                    activation_type.value_or("silu_and_mul"), layout_ready_event);
     } else {
         DG_HOST_UNREACHABLE("Unsupported architecture");
     }
@@ -2095,7 +2097,7 @@ layout (1, sfm) expected by the Gemm2 SFA reader. Unlike the masked variant, bot
           py::arg("a"), py::arg("b"), py::arg("bias"), py::arg("d"), py::arg("m_indices"),
           py::arg("m_rows") = std::nullopt, py::arg("compiled_dims") = "nk",
           py::arg("out_scale") = std::nullopt, py::arg("swiglu_limit") = std::nullopt, py::arg("configs") = std::nullopt,
-          py::arg("activation_type") = std::nullopt);
+          py::arg("activation_type") = std::nullopt, py::arg("layout_ready_event") = py::none());
     m.def("m_grouped_fp4_gemm_nt_masked", &m_grouped_fp4_gemm_nt_masked,
           R"(MoE GroupedMasked FP4 GEMM.
 
